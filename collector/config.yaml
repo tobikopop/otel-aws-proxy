@@ -1,0 +1,34 @@
+# The sidecar's collector configuration (baked at /opt/collector-config/config.yaml,
+# the collector extension's default lookup path — no environment variable needed).
+#
+# Component set of the ADOT Lambda build (verified against
+# aws-otel-lambda/adot/collector/lambdacomponents): receiver otlp; exporters
+# awsxray, awsemf, prometheusremotewrite, otlp, otlphttp, debug; extension
+# sigv4auth. There are NO processors in that build, so sampling and flush
+# discipline live in the application (see the otel-aws-utils crate).
+#
+# Override per deployment with OPENTELEMETRY_COLLECTOR_CONFIG_URI (file:/,
+# http(s)://, s3://) if the pipeline ever needs re-routing (e.g. otlphttp to a
+# central collector) without rebuilding images.
+receivers:
+  otlp:
+    protocols:
+      # The Rust SDK exports OTLP/HTTP protobuf to 127.0.0.1:4318.
+      http:
+        endpoint: "127.0.0.1:4318"
+      # Kept for ad-hoc debugging with grpc-based tooling.
+      grpc:
+        endpoint: "127.0.0.1:4317"
+
+exporters:
+  # Traces -> AWS X-Ray as subsegments of the Lambda invocation segment.
+  awsxray:
+  # Sidecar self-diagnostics land on the sidecar's stderr (the Lambda log group).
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [awsxray]
