@@ -39,7 +39,7 @@ build never wants to edit `go.mod`.
 Flake input in a service repo:
 
 ```nix
-inputs.otel-aws-proxy.url = "github:tobikopop/otel-aws-proxy";
+inputs.otel-aws-proxy.url = "git+ssh://git@github.com/tobikopop/otel-aws-proxy.git";
 
 # in the image root:
 sidecarRoot = otel-aws-proxy.packages.${system}.collector-extension;
