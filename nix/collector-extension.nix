@@ -82,12 +82,30 @@ buildGoModule {
 
   vendorHash = "sha256-6BkEWePX6ukbKGICHvirkxKEVSY1CaUdqjVcaXRxEqg=";
 
+  # CGO must be OFF, and it is set through `env` on purpose.
+  #
+  # Why off: buildGoModule defaults to CGO_ENABLED=1, and a dynamically linked
+  # collector drags glibc + tzdata + libunistring + libidn2 + i18n locale data
+  # into every image root that copies this derivation — 82 MB of closure behind
+  # a 45 MB binary, 46 MB with CGO off.
+  #
+  # Why `env.` and not the documented top-level `CGO_ENABLED = "0";`: that
+  # argument only works on nixpkgs revisions carrying buildGoModule's
+  # compatibility shim ("Compatibility layer to the directly-specified
+  # CGO_ENABLED"). This flake pins an older revision, whose buildGoModule reads
+  # `args.env.CGO_ENABLED or go.CGO_ENABLED` and never consumes the top-level
+  # attribute — it stays in the derivation arguments and collides with the `env`
+  # entry buildGoModule itself sets:
+  #   error: The `env` attribute set cannot contain any attributes passed to
+  #   derivation ... CGO_ENABLED: in `env`: 1; in derivation arguments: 0
+  env.CGO_ENABLED = "0";
+
   # buildPhase (not postBuild) is overridden so the binary lands where the
-  # installPhase expects it, without buildGoDir's $out/bin detour. nixpkgs'
-  # go builds with CGO off: the extension is a fully static ELF.
+  # installPhase expects it, without buildGoDir's $out/bin detour. The tags keep
+  # user and DNS lookups in pure Go, so nothing reaches for libc at runtime.
   buildPhase = ''
     runHook preBuild
-    go build -trimpath -ldflags "-s -w" -o collector-extension .
+    go build -trimpath -tags "osusergo,netgo" -ldflags "-s -w" -o collector-extension .
     runHook postBuild
   '';
 
